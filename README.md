@@ -2,7 +2,7 @@
 
 > AI Fairness Audit Platform — upload a dataset with model predictions, get back a regulator-grade fairness audit mapped to the EU AI Act, NIST AI RMF, and ISO/IEC 42001.
 
-**Status:** Phase 1 — working vertical slice. Auth, upload, audit pipeline, and results UI are functional end-to-end on Adult Income. PDF report, SHAP analyzer, mitigation suggestions, and the polish pass on Landing/Dashboard are queued for Phase 2.
+**Status:** Phase 2 — production-grade. Auth (JWT + httpOnly cookies + refresh), upload (with MIME / magic-byte / NUL sniffing), audit pipeline, SHAP explainability with proxy-discrimination warnings, mitigation suggestions, multi-page PDF reports, observability (Prometheus + structured logs), rate limiting, CI with strict mypy + ruff, and Render deployment config. Demo runs end-to-end on the Adult Income dataset.
 
 ## What it does
 
@@ -143,13 +143,37 @@ Every fairness metric maps to specific clauses of the three frameworks. The mapp
 
 Full table: [`backend/app/services/fairness/regulatory.py`](backend/app/services/fairness/regulatory.py).
 
-## What's deferred to Phase 2
+## Deploying to Render
 
-- **SHAP explainability** — global feature importance + per-group comparison + proxy discrimination warnings
-- **PDF report** — ReportLab-rendered, multi-page, suitable for compliance filing
-- **Mitigation suggestions** — per failing metric, with code snippets calling AIF360/Fairlearn
-- **Frontend polish** — Landing page, Dashboard charts (Recharts), Framer Motion animations
-- **Production deploy** — `render.yaml`, GitHub Actions CI/CD, full test coverage
+Render reads [`render.yaml`](render.yaml) at the repo root and provisions:
+
+1. `fairlens-db` — managed PostgreSQL 16 (free plan)
+2. `fairlens-redis` — managed Redis (free plan)
+3. `fairlens-backend` — uvicorn web service (starter plan)
+4. `fairlens-worker` — Celery background worker (starter plan)
+5. `fairlens-frontend` — built Vite SPA served as a static site
+
+### Steps
+
+1. Create a Render account and connect this GitHub repo (`sboppudi4/fairlens`).
+2. In the Render dashboard, click **New → Blueprint** and point it at the repo. Render auto-discovers `render.yaml` and proposes the five resources above. Approve.
+3. **Set the secrets** Render couldn't infer (these are marked `sync: false` in the blueprint):
+   - `ALLOWED_ORIGINS` on the backend → your frontend URL, e.g. `https://fairlens-frontend.onrender.com`.
+   - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_BUCKET_NAME` on backend + worker → an S3-compatible bucket (real AWS S3, Cloudflare R2, Backblaze B2…). MinIO won't work on Render's free network.
+   - `VITE_API_BASE_URL` on the frontend → your backend URL, e.g. `https://fairlens-backend.onrender.com`.
+4. The first deploy auto-runs `alembic upgrade head` as part of the backend's build command, so the schema is created without manual intervention.
+5. (Optional) Add the deploy hooks Render generated to GitHub repository secrets so [.github/workflows/deploy.yml](.github/workflows/deploy.yml) can re-deploy on every green CI run on `main`:
+   - `RENDER_BACKEND_DEPLOY_HOOK`
+   - `RENDER_WORKER_DEPLOY_HOOK`
+   - `RENDER_FRONTEND_DEPLOY_HOOK`
+
+### Smoke check after deploy
+
+```bash
+curl -sf https://fairlens-backend.onrender.com/health           # → {"status":"ok"}
+curl -sf https://fairlens-backend.onrender.com/ready            # → {"status":"ok","db":"ok","redis":"ok"}
+curl -sf https://fairlens-backend.onrender.com/metrics | head   # Prometheus exposition
+```
 
 ## License
 
