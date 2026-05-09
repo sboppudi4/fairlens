@@ -15,3 +15,16 @@ export async function getMe() {
   const { data } = await api.get<User>("/api/v1/auth/me");
   return data;
 }
+
+export const fetchMe = getMe;
+
+export async function logout(): Promise<void> {
+  await api.post("/api/v1/auth/logout");
+}
+
+export async function refreshToken(refreshToken: string) {
+  const { data } = await api.post<TokenResponse>("/api/v1/auth/refresh", {
+    refresh_token: refreshToken,
+  });
+  return data;
+}

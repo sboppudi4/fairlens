@@ -20,7 +20,7 @@ export default function Register() {
     setSubmitting(true);
     try {
       const resp = await register(email, password, fullName);
-      setAuth(resp.access_token, resp.user);
+      setAuth(resp.access_token, resp.user, resp.refresh_token ?? null);
       navigate("/dashboard");
     } catch (err) {
       setError(extractErrorMessage(err, "Registration failed"));

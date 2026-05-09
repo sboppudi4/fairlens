@@ -19,7 +19,7 @@ export default function Login() {
     setSubmitting(true);
     try {
       const resp = await login(email, password);
-      setAuth(resp.access_token, resp.user);
+      setAuth(resp.access_token, resp.user, resp.refresh_token ?? null);
       navigate("/dashboard");
     } catch (err) {
       setError(extractErrorMessage(err, "Login failed"));
