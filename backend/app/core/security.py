@@ -32,8 +32,22 @@ def create_access_token(subject: str | UUID, expires_minutes: int | None = None)
     return jwt.encode(payload, _settings.SECRET_KEY, algorithm=_settings.ALGORITHM)
 
 
-def decode_token(token: str) -> dict[str, Any]:
+def create_refresh_token(subject: str | UUID, expires_days: int = 30) -> str:
+    expire = datetime.now(UTC) + timedelta(days=expires_days)
+    payload: dict[str, Any] = {
+        "sub": str(subject),
+        "exp": expire,
+        "iat": datetime.now(UTC),
+        "type": "refresh",
+    }
+    return jwt.encode(payload, _settings.SECRET_KEY, algorithm=_settings.ALGORITHM)
+
+
+def decode_token(token: str, *, expected_type: str | None = None) -> dict[str, Any]:
     try:
-        return jwt.decode(token, _settings.SECRET_KEY, algorithms=[_settings.ALGORITHM])
+        payload = jwt.decode(token, _settings.SECRET_KEY, algorithms=[_settings.ALGORITHM])
     except JWTError as e:
         raise ValueError("invalid token") from e
+    if expected_type and payload.get("type") != expected_type:
+        raise ValueError(f"expected token of type {expected_type}, got {payload.get('type')}")
+    return payload
