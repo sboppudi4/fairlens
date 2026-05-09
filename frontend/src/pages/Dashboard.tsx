@@ -3,14 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { listAudits } from "@/api/audits";
 import { listDatasets } from "@/api/datasets";
+import AuditHistory from "@/components/audit/AuditHistory";
 
 export default function Dashboard() {
   const audits = useQuery({ queryKey: ["audits"], queryFn: listAudits, refetchInterval: 5000 });
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: listDatasets });
 
-  // Note: list endpoint returns AuditOut (no results); the Dashboard counts only "completed"
-  // here. A full pass count would require fetching each audit's detail, deferred to Phase 2.
-  const completed = (audits.data ?? []).filter((a) => a.status === "completed").length;
+  // The list endpoint returns AuditOut without nested results. "Completed" count is exact;
+  // a passing-rate badge would require fetching each audit's detail (deferred).
+  const all = audits.data ?? [];
+  const completed = all.filter((a) => a.status === "completed").length;
+  const failed = all.filter((a) => a.status === "failed").length;
 
   return (
     <div className="space-y-8">
@@ -25,78 +28,48 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Stat label="Audits" value={audits.data?.length ?? "—"} />
         <Stat label="Completed" value={completed} />
+        <Stat label="Failed" value={failed} tone={failed > 0 ? "danger" : undefined} />
         <Stat label="Datasets" value={datasets.data?.length ?? "—"} />
       </div>
 
       <section>
-        <h2 className="text-lg font-semibold mb-3">Recent audits</h2>
-        <div className="card !p-0 overflow-hidden">
-          {audits.isLoading ? (
-            <div className="p-6 text-muted text-sm">Loading…</div>
-          ) : !audits.data || audits.data.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-muted text-sm mb-4">No audits yet.</p>
-              <Link to="/audits/new" className="btn-primary">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Recent audits</h2>
+        </div>
+        <AuditHistory
+          audits={all}
+          isLoading={audits.isLoading}
+          emptyState={
+            <div>
+              <p className="text-sm mb-4">No audits yet.</p>
+              <Link to="/audits/new" className="btn-primary inline-flex">
                 Run your first audit
               </Link>
             </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-bg/40 border-b border-border">
-                <tr className="text-left text-muted">
-                  <th className="px-4 py-2 font-medium">Name</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Created</th>
-                  <th className="px-4 py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {audits.data.map((a) => (
-                  <tr key={a.id} className="border-b border-border/50 last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{a.name}</div>
-                      <div className="text-xs text-muted">{a.config.sensitive_attributes.join(", ")}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={a.status} />
-                    </td>
-                    <td className="px-4 py-3 text-muted">{new Date(a.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link to={`/audits/${a.id}`} className="text-accent hover:underline">
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+          }
+        />
       </section>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone?: "danger";
+}) {
+  const cls = tone === "danger" ? "text-danger" : "text-fg";
   return (
     <div className="card">
       <div className="text-xs uppercase tracking-wider text-muted">{label}</div>
-      <div className="font-mono text-3xl font-semibold mt-1">{value}</div>
+      <div className={`font-mono text-3xl font-semibold mt-1 ${cls}`}>{value}</div>
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls =
-    status === "completed"
-      ? "badge-pass"
-      : status === "running"
-      ? "badge-warn"
-      : status === "failed"
-      ? "badge-fail"
-      : "badge-neutral";
-  return <span className={cls}>{status}</span>;
 }
