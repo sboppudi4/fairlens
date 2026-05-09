@@ -1,34 +1,44 @@
 import { useEffect, useState } from "react";
-import { FileText, Loader2, AlertTriangle } from "lucide-react";
+import { Document, Page, pdfjs } from "react-pdf";
+import { ChevronLeft, ChevronRight, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { downloadReport } from "@/api/reports";
+
+import "react-pdf/dist/Page/TextLayer.css";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+
+// Use the worker shipped inside the bundled `pdfjs-dist` (no CDN dependency).
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 
 interface Props {
   auditId: string;
   ready: boolean;
 }
 
-/** Inline iframe preview of the PDF report once it's available. */
+/** True PDF preview using react-pdf, with page navigation. */
 export default function ReportPreview({ auditId, ready }: Props) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [numPages, setNumPages] = useState<number>(0);
 
   useEffect(() => {
     if (!ready) return;
     let active = true;
-    let createdUrl: string | null = null;
     setError(null);
+    setBlob(null);
+    setPageNumber(1);
     downloadReport(auditId)
-      .then((blob) => {
-        if (!active) return;
-        createdUrl = URL.createObjectURL(blob);
-        setUrl(createdUrl);
+      .then((b) => {
+        if (active) setBlob(b);
       })
       .catch((e) => {
         if (active) setError(e instanceof Error ? e.message : "Failed to load preview");
       });
     return () => {
       active = false;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
   }, [auditId, ready]);
 
@@ -50,7 +60,7 @@ export default function ReportPreview({ auditId, ready }: Props) {
     );
   }
 
-  if (!url) {
+  if (!blob) {
     return (
       <div className="card flex items-center gap-3 text-sm text-muted">
         <Loader2 className="w-4 h-4 animate-spin" /> Loading preview…
@@ -60,11 +70,46 @@ export default function ReportPreview({ auditId, ready }: Props) {
 
   return (
     <div className="card p-0 overflow-hidden">
-      <iframe
-        src={`${url}#toolbar=0&navpanes=0`}
-        title="FairLens audit report preview"
-        className="w-full h-[720px] border-0"
-      />
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg/40">
+        <div className="text-sm">
+          Page <span className="font-mono">{pageNumber}</span> of <span className="font-mono">{numPages || "?"}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+            disabled={pageNumber <= 1}
+            className="btn-ghost py-1 px-2 text-xs"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPageNumber((p) => Math.min(numPages || p, p + 1))}
+            disabled={!numPages || pageNumber >= numPages}
+            className="btn-ghost py-1 px-2 text-xs"
+            aria-label="Next page"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      <div className="overflow-auto max-h-[720px] p-4 bg-bg flex justify-center">
+        <Document
+          file={blob}
+          onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+          loading={<Loader2 className="w-5 h-5 animate-spin text-accent" />}
+          error={<span className="text-danger text-sm">Could not render PDF.</span>}
+        >
+          <Page
+            pageNumber={pageNumber}
+            renderTextLayer
+            renderAnnotationLayer
+            width={Math.min(720, window.innerWidth - 80)}
+          />
+        </Document>
+      </div>
     </div>
   );
 }
