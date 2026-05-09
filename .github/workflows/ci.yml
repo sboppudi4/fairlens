@@ -26,7 +26,7 @@ jobs:
       - name: Ruff
         run: ruff check app
       - name: Mypy
-        run: mypy app || true  # warn-only until full type coverage
+        run: mypy app
 
   backend-test:
     name: Backend tests
