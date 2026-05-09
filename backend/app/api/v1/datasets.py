@@ -36,6 +36,7 @@ async def upload_dataset(
         name=name,
         description=description,
         max_size_bytes=settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024,
+        content_type=file.content_type,
     )
     return DatasetOut.model_validate(ds)
 

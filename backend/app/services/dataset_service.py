@@ -12,6 +12,29 @@ from app.models.dataset import Dataset
 from app.utils.csv_parser import parse_csv
 
 
+_ALLOWED_MIME_TYPES = {
+    "text/csv",
+    "application/csv",
+    "text/plain",
+    "application/vnd.ms-excel",  # Some browsers tag .csv this way
+    "application/octet-stream",  # Fallback when the browser isn't sure
+    "",  # When the client doesn't send one at all
+    None,
+}
+
+# Magic bytes that disqualify a file outright (compressed archives, executables, PDFs).
+_BLOCKED_MAGIC_BYTES: tuple[bytes, ...] = (
+    b"PK\x03\x04",  # ZIP / docx / xlsx
+    b"\x1f\x8b",  # GZIP
+    b"BZh",  # BZIP2
+    b"\xfd7zXZ\x00",  # XZ
+    b"7z\xbc\xaf\x27\x1c",  # 7z
+    b"%PDF-",  # PDF
+    b"\x7fELF",  # ELF binary
+    b"MZ",  # Windows PE
+)
+
+
 async def create_dataset_from_upload(
     db: AsyncSession,
     *,
@@ -21,11 +44,22 @@ async def create_dataset_from_upload(
     name: str | None,
     description: str | None,
     max_size_bytes: int,
+    content_type: str | None = None,
 ) -> Dataset:
+    # ---- Boundary checks (size, extension, MIME, magic bytes) -----------
     if len(data) > max_size_bytes:
         raise http_413(f"file exceeds max size of {max_size_bytes // (1024 * 1024)} MB")
     if not filename.lower().endswith(".csv"):
         raise http_400("only .csv files are supported")
+    if content_type is not None and content_type not in _ALLOWED_MIME_TYPES:
+        raise http_400(f"unsupported content-type: {content_type}")
+    head = data[:8]
+    if any(head.startswith(magic) for magic in _BLOCKED_MAGIC_BYTES):
+        raise http_400("file does not appear to be a plain-text CSV")
+    # Cheap text-content sniff: reject if the first 4 KB contains many NULs
+    sample = data[: 4 * 1024]
+    if sample.count(b"\x00") > 8:
+        raise http_400("CSV must be plain text (binary content detected)")
 
     try:
         meta = parse_csv(data)
