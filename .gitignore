@@ -74,6 +74,10 @@ artifacts/
 # Claude Code local settings
 .claude/
 .git_commit_plan.ps1
+.git_commit_plan2.ps1
+.git_commit_plan3.ps1
+.git_commit_plan4.ps1
+.git_commit_plan5.ps1
 
 # OS
 Thumbs.db
