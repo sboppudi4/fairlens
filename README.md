@@ -4,6 +4,8 @@
 
 **Status:** Phase 2 — production-grade. Auth (JWT + httpOnly cookies + refresh), upload (with MIME / magic-byte / NUL sniffing), audit pipeline, SHAP explainability with proxy-discrimination warnings, mitigation suggestions, multi-page PDF reports, observability (Prometheus + structured logs), rate limiting, CI with strict mypy + ruff, and Render deployment config. Demo runs end-to-end on the Adult Income dataset.
 
+The frontend is a code-split React/Vite SPA with a minimalist dark-glass design system and a lazy-loaded WebGL (three.js / @react-three/fiber) prism — the 3D assets ship in their own chunk and never enter the initial page load.
+
 ## What it does
 
 You give FairLens a CSV containing a `label` column (ground truth), a `prediction` column (your model's output), and one or more sensitive attributes (e.g. `sex`, `race`). It computes seven fairness metrics for each sensitive attribute, scores the system on a 0–100 fairness scale, classifies it Low / Medium / High Risk, and maps every metric to the specific clauses of the EU AI Act, NIST AI RMF, and ISO/IEC 42001 that govern it.
@@ -45,36 +47,66 @@ The math is in [`backend/app/services/fairness/metrics.py`](backend/app/services
                           └──────────────┘
 ```
 
-## Quick start
+## Run it locally (Docker)
 
-Requires Docker Desktop.
+Requires **Docker Desktop running**.
 
 ```bash
-git clone <this repo>
+git clone https://github.com/sboppudi4/fairlens.git
 cd fairlens
 docker compose up --build
 ```
 
-Wait ~60s for everything to come up. Then:
+The first build takes a few minutes — it installs the backend's ML stack (pandas, scikit-learn, xgboost, shap). This starts Postgres, Redis, MinIO, the FastAPI backend, the Celery worker, and the Vite frontend.
+
+Once the backend is healthy (`curl http://localhost:8000/health` → `{"status":"ok"}`), **seed the demo** — this is what creates the login account; the demo user does not exist until you run it:
 
 ```bash
-# Seed the demo: creates the demo user, downloads Adult Income, trains XGBoost,
-# uploads predictions to MinIO, and queues an audit. Idempotent for the user.
+# Creates demo@fairlens.dev / fairlens2026, downloads Adult Income, trains XGBoost,
+# uploads predictions to MinIO, and queues a real audit. Idempotent for the user.
 docker compose exec backend python -m scripts.seed_demo
 ```
 
 Open:
 
-- **Frontend**: http://localhost:5173 — login as `demo@fairlens.dev` / `fairlens2026`
+- **Frontend**: http://localhost:5173 — log in as `demo@fairlens.dev` / `fairlens2026`
 - **API docs**: http://localhost:8000/docs
-- **MinIO console**: http://localhost:9001 — login as `minioadmin` / `minioadmin`
+- **MinIO console**: http://localhost:9001 — `minioadmin` / `minioadmin`
 
-The Dashboard auto-refreshes every 5s; the audit you seeded should move from `running` → `completed` within ~10s. Click into it to see the full results.
+The Dashboard auto-refreshes every 5s; the seeded audit moves `pending → running → completed` within ~10s. Click into it for the full results.
+
+<details>
+<summary><b>Troubleshooting</b></summary>
+
+- **`Conflict. The container name "/fairlens-…" is already in use`** — stale containers from a previous run. Clear them and retry:
+  ```bash
+  docker compose down --remove-orphans
+  docker rm -f $(docker ps -aq --filter name=fairlens)   # if any remain
+  docker compose up --build
+  ```
+- **Login shows a network error** — the backend isn't up yet. Wait for `http://localhost:8000/health` to return `{"status":"ok"}`.
+- **Login fails with invalid credentials** — run the `seed_demo` step above; it creates the demo user.
+</details>
+
+## Frontend development (hot reload)
+
+The design system, pages, and the 3D prism live in `frontend/`. To iterate on the UI with hot-module reload while the rest of the stack runs in Docker:
+
+```bash
+docker compose up -d backend worker                       # backend + its deps (postgres/redis/minio); leaves :5173 free
+docker compose exec backend python -m scripts.seed_demo   # once, so the demo login works
+
+cd frontend
+npm install
+npm run dev                                               # Vite dev server → http://localhost:5173
+```
+
+The frontend reads `VITE_API_BASE_URL` (defaults to `http://localhost:8000`). Stack: React 18 + Vite + Tailwind, route-level code splitting, and a lazy `three.js` hero/backdrop. Useful scripts: `npm run build` (typecheck + production build), `npm run type-check`.
 
 ## Running the tests
 
 ```bash
-docker compose exec backend pytest backend/tests -v
+docker compose exec backend pytest tests -v
 ```
 
 The fairness math tests use hand-calculated values for a tiny 10-row dataset, so any regression in the math is immediately visible.
@@ -121,14 +153,23 @@ fairlens/
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
+│   ├── public/                    # sitemap.xml, robots.txt (served at site root)
 │   ├── src/
 │   │   ├── api/                   # axios clients
 │   │   ├── pages/                 # Login / Register / Dashboard / NewAudit / AuditResults
 │   │   ├── components/
+│   │   │   ├── landing/           # ★ WebGL prism (three.js) — hero + page backdrops
+│   │   │   ├── layout/            # Navbar / Sidebar / Layout shell
+│   │   │   ├── results/ ...       # charts, gauges, regulatory map
+│   │   │   └── ui/                # Button / Card / Input / Badge primitives
+│   │   ├── index.css              # Tailwind + dark-glass design tokens & animations
 │   │   ├── store/authStore.ts
 │   │   └── types/index.ts
+│   ├── nginx.conf                 # static-serving config (gzip + immutable asset cache)
+│   ├── tailwind.config.ts         # design-system color/type tokens
 │   ├── Dockerfile                 # dev + multi-stage prod
 │   └── package.json
+├── nginx/                         # reverse proxy (API + SPA) for the compose prod stack
 ├── docker-compose.yml
 └── README.md
 ```
