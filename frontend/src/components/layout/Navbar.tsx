@@ -13,11 +13,11 @@ export default function Navbar() {
   }
 
   return (
-    <header className="border-b border-border bg-surface">
+    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-black/50 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <Link to="/dashboard" className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-accent" />
-          <span className="font-bold tracking-tight">FairLens</span>
+          <span className="font-semibold tracking-tight">FairLens</span>
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <NavLink to="/dashboard" className={navClass}>
@@ -41,7 +41,7 @@ export default function Navbar() {
 
 function navClass({ isActive }: { isActive: boolean }) {
   return (
-    "px-3 py-1.5 rounded-md transition-colors " +
-    (isActive ? "bg-accent/10 text-accent" : "text-muted hover:text-fg hover:bg-surface")
+    "px-3 py-1.5 rounded-lg transition-colors " +
+    (isActive ? "bg-accent/10 text-accent" : "text-muted hover:text-fg hover:bg-white/5")
   );
 }

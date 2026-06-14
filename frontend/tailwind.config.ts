@@ -5,15 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: "#0f1117",
-        surface: "#1a1d27",
-        border: "#2a2d3a",
-        accent: "#3b82f6",
-        success: "#10b981",
-        warning: "#f59e0b",
-        danger: "#ef4444",
-        muted: "#64748b",
-        fg: "#f1f5f9",
+        bg: "#0a0a0c",
+        surface: "#141418",
+        border: "#26262c",
+        accent: "#0a84ff",
+        success: "#30d158",
+        warning: "#e0a106",
+        danger: "#ff453a",
+        muted: "#86868b",
+        fg: "#f5f5f7",
       },
       fontFamily: {
         sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],

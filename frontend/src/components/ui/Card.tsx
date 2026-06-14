@@ -20,7 +20,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     <div
       ref={ref}
       className={[
-        "bg-surface border rounded-lg",
+        "bg-surface border rounded-2xl",
         TONE[tone],
         noPadding ? "" : "p-4",
         className,

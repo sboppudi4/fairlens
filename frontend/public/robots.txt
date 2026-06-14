@@ -1,0 +1,11 @@
+# FairLens robots policy
+# Public marketing/auth pages are crawlable; authenticated app routes are not.
+
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /register
+Disallow: /dashboard
+Disallow: /audits/
+
+Sitemap: https://fairlens-frontend.onrender.com/sitemap.xml

@@ -22,7 +22,7 @@ interface Props {
   height?: number;
 }
 
-const COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"];
+const COLORS = ["#0a84ff", "#3a9bff", "#6fb6ff", "#9ccbff", "#c9e0ff"];
 
 /** Horizontal bar chart of SHAP feature importance — the "waterfall" view. */
 export default function ShapWaterfall({
@@ -51,19 +51,19 @@ export default function ShapWaterfall({
       <div className="text-sm font-medium mb-2">{title}</div>
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={data} layout="vertical" margin={{ left: 16, right: 24, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" horizontal={false} />
-          <XAxis type="number" stroke="#64748b" fontSize={11} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(134,134,139,0.15)" horizontal={false} />
+          <XAxis type="number" stroke="#86868b" fontSize={11} />
           <YAxis
             type="category"
             dataKey="label"
-            stroke="#64748b"
+            stroke="#86868b"
             fontSize={11}
             width={170}
             interval={0}
           />
           <Tooltip
-            contentStyle={{ background: "#1a1d27", border: "1px solid #2a2d3a", borderRadius: 6 }}
-            labelStyle={{ color: "#f1f5f9" }}
+            contentStyle={{ background: "#141418", border: "1px solid #26262c", borderRadius: 12 }}
+            labelStyle={{ color: "#f5f5f7" }}
             formatter={(value: number) => value.toFixed(4)}
           />
           <Bar dataKey="mean_abs_shap" radius={[0, 4, 4, 0]}>

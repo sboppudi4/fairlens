@@ -9,27 +9,131 @@ body,
 }
 
 body {
-  background-color: #0f1117;
-  color: #f1f5f9;
+  background-color: #0a0a0c;
+  color: #f5f5f7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Lightweight entrance animations (replaces framer-motion on the landing page,
+   keeping that library off the public `/` critical path). Stagger via inline
+   animation-delay. Respects users who prefer reduced motion. */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-left {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-up { opacity: 0; animation: fade-up 0.4s ease-out forwards; }
+.animate-fade-left { opacity: 0; animation: fade-left 0.4s ease-out forwards; }
+.animate-fade-in { opacity: 0; animation: fade-in 0.4s ease-out forwards; }
+.animate-scale-in { opacity: 0; animation: scale-in 0.5s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-left,
+  .animate-fade-in,
+  .animate-scale-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Hero "focus-in" reveal (a lens pulling into focus) + slowly drifting lens rings. */
+@keyframes lens-focus {
+  from { opacity: 0; filter: blur(14px); transform: translateY(14px); letter-spacing: 0.06em; }
+  to   { opacity: 1; filter: blur(0);    transform: translateY(0);    letter-spacing: -0.02em; }
+}
+@keyframes ring-drift {
+  to { transform: rotate(360deg); }
+}
+.lens-focus { opacity: 0; animation: lens-focus 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.lens-ring { animation: ring-drift 80s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lens-focus { animation: none; opacity: 1; filter: none; transform: none; }
+  .lens-ring { animation: none; }
+}
+
+/* Hero prism: floated so the copy wraps cleanly around its circular silhouette. */
+.prism-float {
+  position: relative;
+  float: right;
+  width: clamp(260px, 40vw, 520px);
+  height: clamp(260px, 40vw, 520px);
+  shape-outside: circle(48%);
+  margin: 0 0 1.5rem 2.5rem;
+}
+.prism-fallback {
+  position: absolute;
+  inset: 0;
+}
+/* Stack on narrow viewports instead of wrapping. */
+@media (max-width: 820px) {
+  .prism-float {
+    float: none;
+    width: min(78vw, 360px);
+    height: min(78vw, 360px);
+    shape-outside: none;
+    margin: 0 auto 2rem;
+  }
+}
+
+/* Decorative prism backdrops (non-interactive). */
+.prism-auth {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(92vw, 640px);
+  height: min(92vw, 640px);
+  transform: translate(-50%, -50%);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 0;
+}
+.prism-ambient {
+  position: fixed;
+  top: 6vh;
+  right: -8vw;
+  width: clamp(360px, 44vw, 680px);
+  height: clamp(360px, 44vw, 680px);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+@media (max-width: 820px) {
+  .prism-ambient {
+    right: -22vw;
+    opacity: 0.18;
+  }
+}
+
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-accent/60 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-blue-600;
+    @apply btn bg-accent text-white hover:brightness-110;
   }
   .btn-ghost {
-    @apply btn border border-border text-fg hover:bg-surface;
+    @apply btn border border-border text-fg hover:bg-white/5;
   }
   .input {
-    @apply w-full rounded-md bg-surface border border-border px-3 py-2 text-sm text-fg placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent;
+    @apply w-full rounded-xl bg-bg border border-border px-3.5 py-2.5 text-sm text-fg placeholder-muted transition focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent;
   }
   .card {
-    @apply rounded-lg border border-border bg-surface p-6;
+    @apply rounded-2xl border border-white/[0.08] bg-surface p-6;
   }
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;

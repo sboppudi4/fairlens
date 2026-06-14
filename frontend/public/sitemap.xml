@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FairLens sitemap.
+  Base URL is the Render frontend service; replace with a custom domain if one is configured.
+  Only publicly reachable, indexable routes are listed. Authenticated app routes
+  (/dashboard, /audits/new, /audits/:id) are intentionally excluded because they
+  require a login token and/or are dynamic per-user resources.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://fairlens-frontend.onrender.com/</loc>
+    <lastmod>2026-06-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://fairlens-frontend.onrender.com/register</loc>
+    <lastmod>2026-06-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://fairlens-frontend.onrender.com/login</loc>
+    <lastmod>2026-06-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>

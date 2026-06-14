@@ -46,7 +46,7 @@ export default function Sidebar({ links, activeId }: Props) {
               "block px-3 py-1.5 rounded-md transition-colors border-l-2",
               current === l.id
                 ? "border-accent text-accent bg-accent/10"
-                : "border-transparent text-muted hover:text-fg hover:bg-surface",
+                : "border-transparent text-muted hover:text-fg hover:bg-white/5",
             ].join(" ")}
           >
             {l.label}

@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { login } from "@/api/auth";
 import { extractErrorMessage } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
+import PrismBackdrop from "@/components/landing/PrismBackdrop";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -29,13 +30,17 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4">
+      <PrismBackdrop className="prism-auth" />
+      <div className="relative z-10 w-full max-w-md">
         <div className="flex items-center gap-2 mb-8 justify-center">
           <ShieldCheck className="w-8 h-8 text-accent" />
           <h1 className="text-2xl font-bold">FairLens</h1>
         </div>
-        <form onSubmit={onSubmit} className="card space-y-4">
+        <form
+          onSubmit={onSubmit}
+          className="relative space-y-4 rounded-2xl border border-white/[0.1] bg-white/[0.04] p-6 backdrop-blur-2xl"
+        >
           <h2 className="text-xl font-semibold">Sign in</h2>
           <div>
             <label className="block text-sm text-muted mb-1">Email</label>
