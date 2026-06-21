@@ -2,7 +2,7 @@
 
 > AI Fairness Audit Platform — upload a dataset with model predictions, get back a regulator-grade fairness audit mapped to the EU AI Act, NIST AI RMF, and ISO/IEC 42001.
 
-**Status:** Phase 2 — production-grade. Auth (JWT + httpOnly cookies + refresh), upload (with MIME / magic-byte / NUL sniffing), audit pipeline, SHAP explainability with proxy-discrimination warnings, mitigation suggestions, multi-page PDF reports, observability (Prometheus + structured logs), rate limiting, CI with strict mypy + ruff, and Render deployment config. Demo runs end-to-end on the Adult Income dataset.
+**Status:** Phase 2 — production-grade. Auth (JWT + httpOnly cookies + refresh), upload (with MIME / magic-byte / NUL sniffing), audit pipeline, SHAP explainability with proxy-discrimination warnings, mitigation suggestions, multi-page PDF reports, observability (Prometheus + Grafana + structured logs), rate limiting, CI with strict mypy + ruff, and Render deployment config. Demo runs end-to-end on the Adult Income dataset.
 
 The frontend is a code-split React/Vite SPA with a minimalist dark-glass design system and a lazy-loaded WebGL (three.js / @react-three/fiber) prism — the 3D assets ship in their own chunk and never enter the initial page load.
 
@@ -23,6 +23,10 @@ You give FairLens a CSV containing a `label` column (ground truth), a `predictio
 | Individual fairness consistency | mean fraction of k-NN sharing prediction | ≥ 0.75 |
 
 The math is in [`backend/app/services/fairness/metrics.py`](backend/app/services/fairness/metrics.py) and is verified against hand-calculated values in [`backend/tests/test_fairness_metrics.py`](backend/tests/test_fairness_metrics.py).
+
+### Adapting these metrics to LLMs
+
+The seven metrics and the SHAP proxy-discrimination logic are model-agnostic — they only consume `(label, prediction, group)` vectors, so nothing ties them to tabular models. [**`docs/llm-bias-auditing.md`**](docs/llm-bias-auditing.md) walks through producing those vectors for a large language model: counterfactual token **log-probability** bias, **toxicity / refusal disparities** via equalized odds, per-group **calibration**, and **counterfactual fairness** as the LLM form of individual-fairness consistency — plus how SHAP's proxy-discrimination check maps to token attribution. The same regulatory mapping (EU AI Act / NIST / ISO) carries over unchanged.
 
 ## Architecture
 
@@ -111,6 +115,26 @@ docker compose exec backend pytest tests -v
 
 The fairness math tests use hand-calculated values for a tiny 10-row dataset, so any regression in the math is immediately visible.
 
+## Observability
+
+`docker compose up` brings up Prometheus and Grafana alongside the app, so the metrics dashboard is available with **zero extra setup** — clone, `up`, look.
+
+- **Grafana**: http://localhost:3000 — anonymous admin is enabled, so no login. Open the pre-provisioned **FairLens API Overview** dashboard (request rate by route, p50/p95/p99 latency, latency by route, responses by status, error ratio, request volume).
+- **Prometheus**: http://localhost:9090 — scrapes the backend's `/metrics` every 5s.
+
+The backend exposes Prometheus metrics from a single ASGI middleware in [`backend/app/main.py`](backend/app/main.py): `fairlens_http_requests_total{method,path,status}` and the `fairlens_http_request_duration_seconds` histogram, plus default process/runtime collectors. Paths are labelled by **route template** (not the raw URL) to keep cardinality bounded. The Prometheus scrape config and Grafana provisioning + dashboard JSON live in [`ops/`](ops/), so the whole stack is version-controlled and reproducible:
+
+```
+ops/
+├── prometheus/prometheus.yml                       # scrape config (backend:8000/metrics)
+└── grafana/
+    ├── provisioning/datasources/prometheus.yml     # auto-wires the Prometheus datasource
+    ├── provisioning/dashboards/dashboards.yml      # auto-loads dashboards from disk
+    └── dashboards/fairlens.json                    # the committed dashboard model
+```
+
+Panels stay empty until there's traffic — run `seed_demo` (above) or click around the app, then watch the dashboard populate (Grafana auto-refreshes).
+
 ## Environment variables
 
 | Variable | Default | Notes |
@@ -170,6 +194,7 @@ fairlens/
 │   ├── Dockerfile                 # dev + multi-stage prod
 │   └── package.json
 ├── nginx/                         # reverse proxy (API + SPA) for the compose prod stack
+├── ops/                           # Prometheus scrape config + Grafana provisioning & dashboard
 ├── docker-compose.yml
 └── README.md
 ```
@@ -215,6 +240,36 @@ curl -sf https://fairlens-backend.onrender.com/health           # → {"status":
 curl -sf https://fairlens-backend.onrender.com/ready            # → {"status":"ok","db":"ok","redis":"ok"}
 curl -sf https://fairlens-backend.onrender.com/metrics | head   # Prometheus exposition
 ```
+
+## Key Engineering Tradeoffs
+
+The architecture above wasn't the simplest thing that could work — it's the simplest thing that
+reflects how this would actually be deployed. The decisions that cost something:
+
+- **Async API, synchronous Celery worker.** The FastAPI layer is fully async (asyncpg, async S3) so it
+  stays responsive under concurrent I/O. The fairness computation — pandas, scikit-learn, SHAP — is
+  CPU-bound and would block the event loop, so it runs in a **separate Celery worker**, not the request
+  path. Cost: a Redis broker and a second process to operate. Benefit: a multi-second audit never
+  blocks the API, jobs survive a restart, and the worker scales independently of the web tier.
+
+- **Fairness metrics implemented in pure NumPy, not a fairness library.** The seven metrics are derived
+  by hand rather than pulled from Fairlearn or AIF360. Cost: more code to own and maintain. Benefit:
+  every number is auditable, tested against hand calculations on a 10-row fixture, and free of heavy
+  transitive dependencies — for a *compliance* tool, a metric you can't verify line-by-line is a
+  liability, not a convenience.
+
+- **Regulatory clauses quoted verbatim as a static table.** `regulatory.py` stores exact text from the
+  EU AI Act, NIST AI RMF, and ISO/IEC 42001, not paraphrases. Cost: it must be updated when the
+  regulations change. Benefit: the output is citable and defensible, which is the entire point of a
+  governance artifact — a paraphrased or model-generated clause is worthless in an audit.
+
+- **Production topology (Postgres + Redis + MinIO/S3 + Celery), not a single process.** Cost: you need
+  `docker compose`, not `python app.py`. Benefit: it mirrors a real deployment and the Render blueprint
+  maps onto it one-to-one, so "works on my machine" and "works in prod" are the same code path.
+
+- **Prometheus labels use the route template, not the raw path.** `/datasets/{id}` instead of a
+  distinct series per UUID. Cost: no per-request granularity in metrics. Benefit: bounded cardinality,
+  so the time-series database and dashboards stay stable no matter how many datasets exist.
 
 ## License
 
